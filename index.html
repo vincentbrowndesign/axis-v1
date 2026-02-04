@@ -1,11 +1,129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Axis v1</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto; padding: 24px; background: #0b0b0b; color: #f3f3f3; }
+      .wrap { max-width: 720px; margin: 0 auto; }
+      .card { border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 16px; margin-top: 14px; background: #121212; }
+      input, select, button { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: #0f0f0f; color: #f3f3f3; }
+      button { font-weight: 700; cursor: pointer; border: none; background: #f3f3f3; color: #0b0b0b; }
+      label { display: grid; gap: 6px; margin-top: 10px; }
+      .muted { opacity: 0.7; font-size: 12px; letter-spacing: .02em; }
+      .constraint { font-size: 22px; font-weight: 800; margin-top: 6px; }
+      .row { display: grid; gap: 8px; }
+    </style>
   </head>
   <body>
-    <h1>Axis v1</h1>
-    <p>Signal-first operating environment.</p>
+    <div class="wrap">
+      <div class="muted">Axis v1</div>
+      <h1 style="margin:6px 0 8px;">Signal-first coaching OS</h1>
+      <p style="margin:0; opacity:.85;">Observe → Detect State → Issue Constraint</p>
+
+      <div class="card">
+        <h2 style="margin:0 0 12px; font-size:16px;">Start Live Session</h2>
+
+        <form id="axisForm" class="row">
+          <label>
+            <span class="muted">Player</span>
+            <input id="player" placeholder="Name" required />
+          </label>
+
+          <label>
+            <span class="muted">Session</span>
+            <select id="sessionType">
+              <option>Training</option>
+              <option>Scrimmage</option>
+              <option>Game</option>
+            </select>
+          </label>
+
+          <label>
+            <span class="muted">Observed State</span>
+            <select id="state">
+              <option value="rushed">rushed</option>
+              <option value="frozen">frozen</option>
+              <option value="over_dribbling">over-dribbling</option>
+              <option value="passive">passive</option>
+              <option value="forcing">forcing</option>
+              <option value="composed">composed</option>
+            </select>
+          </label>
+
+          <label>
+            <span class="muted">Behavior observed</span>
+            <input id="note" placeholder="One line. What did you see?" />
+          </label>
+
+          <label>
+            <span class="muted">Did they follow the constraint?</span>
+            <select id="followed">
+              <option value="yes">yes</option>
+              <option value="no">no</option>
+            </select>
+          </label>
+
+          <div style="margin-top:12px;">
+            <button type="submit">Log Session</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="muted">Constraint issued</div>
+        <div id="constraint" class="constraint"></div>
+
+        <div style="margin-top:12px; display:grid; gap:8px;">
+          <div><b>Success signal:</b> follows constraint twice in a row</div>
+          <div><b>Failure signal:</b> reverts to the old habit</div>
+          <div><b>If passed twice:</b> constraint opens</div>
+        </div>
+
+        <div id="logged" class="muted" style="margin-top:12px; display:none;">
+          Logged.
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const ROUTER = {
+        rushed: "Must pivot on every catch",
+        frozen: "One-dribble pull-up only",
+        over_dribbling: "0-dribble catch & shoot",
+        passive: "Must attack closeout",
+        forcing: "One pass before any shot",
+        composed: "Green light (no constraint)"
+      };
+
+      const stateEl = document.getElementById("state");
+      const constraintEl = document.getElementById("constraint");
+      const form = document.getElementById("axisForm");
+      const logged = document.getElementById("logged");
+
+      function renderConstraint() {
+        constraintEl.textContent = ROUTER[stateEl.value];
+        logged.style.display = "none";
+      }
+
+      stateEl.addEventListener("change", renderConstraint);
+      renderConstraint();
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const record = {
+          player: document.getElementById("player").value.trim(),
+          sessionType: document.getElementById("sessionType").value,
+          state: stateEl.value,
+          note: document.getElementById("note").value.trim(),
+          followed: document.getElementById("followed").value,
+          constraint: ROUTER[stateEl.value],
+          at: new Date().toISOString()
+        };
+        console.log("AXIS_V1_RECORD", record);
+        logged.style.display = "block";
+      });
+    </script>
   </body>
 </html>
