@@ -146,10 +146,21 @@ async function sendToSupabase(record) {
     decision: record.followed ? "correct" : "incorrect",
     operator: null
   };
+console.log("Payload:", payload);
+  const { data, error } = await sb
+  .from("events")
+  .insert([payload])
+.select()
+.single();
 
-  const { error } = await sb.from("events").insert(payload);
-  if (error) console.log("Supabase insert error:", error);
+if (error) {
+  alert("Insert failed: " + error.message);
+  console.log("Insert error:", error);
+  return;
 }
+
+console.log("Inserted:", data);
+alert("Saved ✅");
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         const record = {
