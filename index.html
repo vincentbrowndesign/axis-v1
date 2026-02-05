@@ -114,6 +114,41 @@
       stateEl.addEventListener("change", renderConstraint);
       renderConstraint();
 
+      // === Supabase config ===
+const SUPABASE_URL = "https://ozbcxenhloqlenqvyphl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96YmN4aGVuaGxvcWxlbnF5cGhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwOTgzMjUsImV4cCI6MjA4NTY3NDMyNX0.y4-Fpg3Zb98ez5-BEt9W4vnaCCQOxPG9ps13Nq1GH04";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Session (shareable link)
+const url = new URL(window.location.href);
+let sessionId = url.searchParams.get("s");
+
+function uuid() {
+  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+  );
+}
+
+if (!sessionId) {
+  sessionId = uuid();
+  url.searchParams.set("s", sessionId);
+  window.history.replaceState({}, "", url.toString());
+}
+
+async function sendToSupabase(record) {
+  const payload = {
+    session_id: sessionId,
+    player: record.player || null,
+    session_type: record.sessionType || null,
+    state: record.state || null,
+    note: record.note || null,
+    decision: record.followed ? "correct" : "incorrect",
+    operator: null
+  };
+
+  const { error } = await sb.from("events").insert(payload);
+  if (error) console.log("Supabase insert error:", error);
+}
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         const record = {
@@ -126,8 +161,10 @@
           at: new Date().toISOString()
         };
         console.log("AXIS_V1_RECORD", record);
+        sendToSupabase(record);
         logged.style.display = "block";
       });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </body>
 </html>
