@@ -70,14 +70,6 @@ outline: none;
 border-color: rgba(79, 209, 197, 0.6);
 }
 
-.row {
-display: flex;
-gap: 10px;
-}
-.col {
-flex: 1;
-}
-
 .possessionRow {
 display: flex;
 justify-content: space-between;
@@ -181,6 +173,12 @@ text-align: center;
 padding: 10px 12px;
 }
 
+.btn.small {
+padding: 8px 10px;
+border-radius: 10px;
+font-weight: 750;
+}
+
 .btnTitle {
 font-size: 14px;
 line-height: 1.2;
@@ -208,6 +206,16 @@ border: 1px solid rgba(255, 255, 255, 0.06);
 border-radius: 10px;
 }
 
+.errorBox {
+margin-top: 10px;
+padding: 10px;
+border-radius: 10px;
+background: rgba(255, 0, 0, 0.08);
+border: 1px solid rgba(255, 0, 0, 0.18);
+font-size: 12px;
+opacity: 0.9;
+}
+
 .insightLine {
 display: flex;
 align-items: center;
@@ -221,4 +229,164 @@ display: inline-flex;
 padding: 8px 10px;
 border-radius: 999px;
 background: rgba(255, 255, 255, 0.04);
-border: 1px solid rgba(255, 255, 255
+border: 1px solid rgba(255, 255, 255, 0.06);
+font-size: 12px;
+font-weight: 750;
+}
+
+.greenTag {
+background: rgba(31, 122, 79, 0.25);
+border-color: rgba(31, 122, 79, 0.45);
+}
+
+.arrow {
+opacity: 0.55;
+font-size: 12px;
+}
+
+.insightText {
+font-size: 14px;
+font-weight: 750;
+line-height: 1.35;
+}
+
+.recapHeader {
+display: flex;
+align-items: baseline;
+justify-content: space-between;
+gap: 10px;
+margin-bottom: 6px;
+}
+
+.recapActions {
+display: flex;
+gap: 10px;
+}
+
+.recapSub {
+font-size: 12px;
+opacity: 0.6;
+margin-bottom: 10px;
+}
+
+.recapGrid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 10px;
+margin-bottom: 12px;
+}
+
+.recapBox {
+background: rgba(255, 255, 255, 0.03);
+border: 1px solid rgba(255, 255, 255, 0.06);
+border-radius: 12px;
+padding: 10px;
+}
+
+.recapLabel {
+font-size: 12px;
+opacity: 0.75;
+margin-bottom: 10px;
+font-weight: 800;
+}
+
+.recapRow {
+display: flex;
+justify-content: space-between;
+gap: 10px;
+padding: 6px 0;
+border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.recapRow:last-child {
+border-bottom: none;
+}
+
+.recapKey {
+font-size: 12px;
+opacity: 0.85;
+}
+
+.recapVal {
+font-size: 12px;
+font-weight: 850;
+}
+
+.recapNote {
+margin-top: 10px;
+font-size: 12px;
+opacity: 0.65;
+}
+
+.miniTable {
+margin-top: 10px;
+border-radius: 12px;
+overflow: hidden;
+border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.miniHead,
+.miniRow {
+display: grid;
+grid-template-columns: 56px 1fr 1fr;
+gap: 10px;
+padding: 10px;
+}
+
+.miniHead {
+background: rgba(255, 255, 255, 0.03);
+font-size: 12px;
+opacity: 0.7;
+text-transform: uppercase;
+letter-spacing: 0.25px;
+font-weight: 800;
+}
+
+.miniRow {
+border-top: 1px solid rgba(255, 255, 255, 0.05);
+font-size: 12px;
+}
+
+.miniCell {
+opacity: 0.9;
+}
+
+.mono {
+font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.miniEmpty {
+padding: 10px;
+font-size: 12px;
+opacity: 0.65;
+}
+
+.recapFooter {
+margin-top: 12px;
+}
+
+.footerLine {
+font-size: 12px;
+opacity: 0.65;
+text-align: center;
+}
+
+.footer {
+margin-top: 10px;
+font-size: 11px;
+opacity: 0.55;
+text-align: center;
+}
+
+@media (max-width: 460px) {
+.recapGrid {
+grid-template-columns: 1fr;
+}
+.grid {
+grid-template-columns: 1fr;
+}
+.headerActions {
+flex-direction: column;
+align-items: flex-end;
+}
+}
