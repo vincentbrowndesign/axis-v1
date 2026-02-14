@@ -18,69 +18,73 @@ const CONSTRAINT_MICRO = {
 "2 Dribbles Max": "Fast decisions. No over-dribble. Move it or score.",
 };
 
-function transferInsight(constraint, outcome) {
-if (!constraint || !outcome) return "";
+function transferInsight(constraints, outcome) {
+if (!constraints?.length || !outcome) return "";
 
-if (constraint === "Attack the Line") {
-if (outcome === "Good Possession") return "Transfer: first step created help → decision stayed clean.";
-if (outcome === "Foul Drawn") return "Transfer: downhill pressure forced contact (good).";
-if (outcome === "Forced Shot") return "Transfer gap: attacked late → no angle, ended rushed.";
-if (outcome === "Turnover") return "Transfer gap: drove into help without a plan.";
+// Keep it short and parent-readable:
+const held = outcome === "Good Possession" || outcome === "Foul Drawn";
+const head = held ? "Transfer held:" : "Transfer gap:";
+
+// A simple “combo meaning”
+const tags = constraints.join(" + ");
+
+if (held) {
+return `${head} ${tags} showed up and stayed clean under pressure.`;
 }
-
-if (constraint === "Triple Threat / Pivot") {
-if (outcome === "Good Possession") return "Transfer: pivot + eyes created a clean lane or pass.";
-if (outcome === "Foul Drawn") return "Transfer: strong base → defender reached.";
-if (outcome === "Forced Shot") return "Transfer gap: skipped the pivot/read → rushed attempt.";
-if (outcome === "Turnover") return "Transfer gap: telegraphed the read from triple threat.";
-}
-
-if (constraint === "2 Dribbles Max") {
-if (outcome === "Good Possession") return "Transfer: quick decision beat pressure.";
-if (outcome === "Foul Drawn") return "Transfer: 2-dribble attack got downhill fast.";
-if (outcome === "Forced Shot") return "Transfer gap: used dribbles without advantage → bailout shot.";
-if (outcome === "Turnover") return "Transfer gap: dribbles ended with no outlet.";
-}
-
-return "Transfer: constraint + outcome connected.";
+return `${head} ${tags} showed up, but the possession broke down (rushed/turnover).`;
 }
 
 export default function App() {
-// Session = everything logged since you opened this page (simple + reliable)
+// Session = logs since page open (v1 simple)
 const [sessionStartISO, setSessionStartISO] = useState(() => new Date().toISOString());
+
 const [possession, setPossession] = useState(1);
-const [selectedConstraint, setSelectedConstraint] = useState(null);
+
+// ✅ multi-select
+const [selectedConstraints, setSelectedConstraints] = useState([]); // array of strings
+
 const [focusPlayer, setFocusPlayer] = useState("");
 const [loading, setLoading] = useState(false);
 const [lastStatus, setLastStatus] = useState("");
-const [lastCombo, setLastCombo] = useState({ constraint: "", outcome: "" });
+const [lastCombo, setLastCombo] = useState({ constraints: [], outcome: "" });
 
-// Remote logs (from Supabase)
+// Remote logs
 const [remoteLogs, setRemoteLogs] = useState([]);
 const [remoteLoading, setRemoteLoading] = useState(false);
 const [remoteError, setRemoteError] = useState("");
 
-// UI
 const [showRecap, setShowRecap] = useState(false);
 
 const focusPlayerTrim = useMemo(() => focusPlayer.trim(), [focusPlayer]);
-const canSubmit = useMemo(() => !!selectedConstraint && !loading, [selectedConstraint, loading]);
 
-// Pull logs from Supabase for THIS session window
+const canSubmit = useMemo(
+() => selectedConstraints.length > 0 && !loading,
+[selectedConstraints, loading]
+);
+
+const toggleConstraint = (c) => {
+setSelectedConstraints((prev) => {
+const exists = prev.includes(c);
+if (exists) return prev.filter((x) => x !== c);
+
+// limit to 3 max (your full set)
+if (prev.length >= 3) return prev; // ignore tap if already 3
+return [...prev, c];
+});
+};
+
 const fetchLogs = async () => {
 setRemoteLoading(true);
 setRemoteError("");
 
 try {
-// Base query: session window
 let q = supabase
 .from("axis_logs")
-.select("id, possession_number, constraint_name, outcome, focus_player, created_at")
+.select("id, possession_number, constraint_name, constraint_names, outcome, focus_player, created_at")
 .gte("created_at", sessionStartISO)
 .order("created_at", { ascending: true })
 .limit(500);
 
-// Optional focus player filter (exact match)
 if (focusPlayerTrim) {
 q = q.eq("focus_player", focusPlayerTrim);
 }
@@ -103,51 +107,46 @@ setRemoteLoading(false);
 }
 };
 
-// When recap is opened, pull from Supabase
 useEffect(() => {
 if (showRecap) fetchLogs();
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [showRecap]);
 
-// When focus player changes and recap is open, refresh the recap
 useEffect(() => {
 if (showRecap) fetchLogs();
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [focusPlayerTrim]);
 
-const totals = useMemo(() => {
-const rows = remoteLogs;
-
-const byOutcome = OUTCOMES.reduce((acc, o) => ({ ...acc, [o]: 0 }), {});
-const byConstraint = CONSTRAINTS.reduce((acc, c) => ({ ...acc, [c]: 0 }), {});
-
-for (const row of rows) {
-if (byOutcome[row.outcome] !== undefined) byOutcome[row.outcome] += 1;
-if (byConstraint[row.constraint_name] !== undefined) byConstraint[row.constraint_name] += 1;
-}
-
-const total = rows.length;
-const topConstraint = Object.entries(byConstraint).sort((a, b) => b[1] - a[1])[0];
-const topOutcome = Object.entries(byOutcome).sort((a, b) => b[1] - a[1])[0];
-
-return {
-total,
-byOutcome,
-byConstraint,
-topConstraint: topConstraint ? { name: topConstraint[0], count: topConstraint[1] } : null,
-topOutcome: topOutcome ? { name: topOutcome[0], count: topOutcome[1] } : null,
+// Helper: normalize constraints from DB row (supports old + new)
+const rowConstraints = (row) => {
+if (Array.isArray(row.constraint_names) && row.constraint_names.length) return row.constraint_names;
+if (row.constraint_name) return [row.constraint_name];
+return [];
 };
-}, [remoteLogs]);
 
+// Transfer Score: last 10 possessions “held” count
 const last10 = useMemo(() => remoteLogs.slice(-10), [remoteLogs]);
 
+const transferScore = useMemo(() => {
+const held = last10.filter(
+(r) => r.outcome === "Good Possession" || r.outcome === "Foul Drawn"
+).length;
+return { held, total: last10.length };
+}, [last10]);
+
+// Counts (each constraint inside the array counts)
 const last10Summary = useMemo(() => {
 const byOutcome = OUTCOMES.reduce((acc, o) => ({ ...acc, [o]: 0 }), {});
 const byConstraint = CONSTRAINTS.reduce((acc, c) => ({ ...acc, [c]: 0 }), {});
+
 for (const row of last10) {
 if (byOutcome[row.outcome] !== undefined) byOutcome[row.outcome] += 1;
-if (byConstraint[row.constraint_name] !== undefined) byConstraint[row.constraint_name] += 1;
+const cs = rowConstraints(row);
+for (const c of cs) {
+if (byConstraint[c] !== undefined) byConstraint[c] += 1;
 }
+}
+
 const topConstraint = Object.entries(byConstraint).sort((a, b) => b[1] - a[1])[0];
 return {
 byOutcome,
@@ -157,14 +156,13 @@ topConstraint: topConstraint ? { name: topConstraint[0], count: topConstraint[1]
 }, [last10]);
 
 const insightText = useMemo(() => {
-const { constraint, outcome } = lastCombo;
-if (!constraint || !outcome) return "";
-return transferInsight(constraint, outcome);
+if (!lastCombo.constraints.length || !lastCombo.outcome) return "";
+return transferInsight(lastCombo.constraints, lastCombo.outcome);
 }, [lastCombo]);
 
 const logOutcome = async (outcome) => {
-if (!selectedConstraint) {
-setLastStatus("Select a constraint first.");
+if (!selectedConstraints.length) {
+setLastStatus("Select 1–3 constraints first.");
 return;
 }
 
@@ -173,9 +171,11 @@ setLastStatus("Logging…");
 
 const created_at = new Date().toISOString();
 
+// Keep legacy constraint_name for backward compatibility (first selected)
 const payload = {
 possession_number: possession,
-constraint_name: selectedConstraint,
+constraint_name: selectedConstraints[0], // legacy
+constraint_names: selectedConstraints, // ✅ new canonical array
 outcome,
 focus_player: focusPlayerTrim ? focusPlayerTrim : null,
 created_at,
@@ -192,11 +192,10 @@ alert("Supabase insert blocked. Check RLS policy + Vercel env vars.");
 setLastStatus("Logged ✅");
 }
 
-setLastCombo({ constraint: selectedConstraint, outcome });
+setLastCombo({ constraints: selectedConstraints, outcome });
 setPossession((p) => p + 1);
-setSelectedConstraint(null);
+setSelectedConstraints([]);
 
-// Refresh recap data after every log (so parent sees it instantly)
 await fetchLogs();
 } catch (e) {
 console.error("Unexpected insert error:", e);
@@ -210,10 +209,10 @@ setLoading(false);
 const resetSession = () => {
 setSessionStartISO(new Date().toISOString());
 setPossession(1);
-setSelectedConstraint(null);
+setSelectedConstraints([]);
 setFocusPlayer("");
 setLastStatus("");
-setLastCombo({ constraint: "", outcome: "" });
+setLastCombo({ constraints: [], outcome: "" });
 setRemoteLogs([]);
 setRemoteError("");
 setShowRecap(false);
@@ -228,11 +227,7 @@ return (
 </div>
 
 <div className="headerActions">
-<button
-className="btn ghost"
-type="button"
-onClick={() => setShowRecap((v) => !v)}
->
+<button className="btn ghost" type="button" onClick={() => setShowRecap((v) => !v)}>
 {showRecap ? "Hide Recap" : "Show Recap"}
 </button>
 <button className="btn ghost" onClick={resetSession} type="button">
@@ -258,32 +253,28 @@ inputMode="text"
 
 <div className="microRow">
 <div className="microPill">
-<span className="microLabel">Session Start</span>
-<span className="microValue">{new Date(sessionStartISO).toLocaleTimeString()}</span>
+<span className="microLabel">Selected</span>
+<span className="microValue">{selectedConstraints.length}/3</span>
 </div>
 <div className="microPill">
 <span className="microLabel">DB Logs</span>
 <span className="microValue">{remoteLogs.length}</span>
 </div>
-{totals.topConstraint?.count > 0 ? (
 <div className="microPill">
-<span className="microLabel">Top</span>
-<span className="microValue">
-{totals.topConstraint.name} ({totals.topConstraint.count})
-</span>
+<span className="microLabel">Session Start</span>
+<span className="microValue">{new Date(sessionStartISO).toLocaleTimeString()}</span>
 </div>
-) : null}
 </div>
 </section>
 
 <section className="card">
-<div className="sectionTitle">Constraint</div>
+<div className="sectionTitle">Constraint (tap 1–3)</div>
 <div className="grid">
 {CONSTRAINTS.map((c) => (
 <button
 key={c}
-className={`btn ${selectedConstraint === c ? "active" : ""}`}
-onClick={() => setSelectedConstraint(c)}
+className={`btn ${selectedConstraints.includes(c) ? "active" : ""}`}
+onClick={() => toggleConstraint(c)}
 type="button"
 >
 <div className="btnTitle">{c}</div>
@@ -291,7 +282,7 @@ type="button"
 </button>
 ))}
 </div>
-<div className="hint">Tap one constraint that applied this possession.</div>
+<div className="hint">Tap to toggle. You can select 1, 2, or all 3 constraints for the possession.</div>
 </section>
 
 <section className="card">
@@ -315,17 +306,17 @@ type="button"
 
 <section className="card">
 <div className="sectionTitle">Transfer Insight</div>
-{lastCombo.constraint && lastCombo.outcome ? (
+{lastCombo.constraints.length && lastCombo.outcome ? (
 <>
 <div className="insightLine">
-<span className="tag">{lastCombo.constraint}</span>
+{lastCombo.constraints.map((c) => (
+<span className="tag" key={c}>{c}</span>
+))}
 <span className="arrow">→</span>
 <span className="tag greenTag">{lastCombo.outcome}</span>
 </div>
 <div className="insightText">{insightText}</div>
-<div className="hint">
-Parents feel this immediately: we’re measuring decisions under pressure, not makes/misses.
-</div>
+<div className="hint">Now “transfer” is real: the possession can contain multiple skill rules at once.</div>
 </>
 ) : (
 <div className="empty">Log one possession to generate a transfer insight.</div>
@@ -351,6 +342,16 @@ Parents feel this immediately: we’re measuring decisions under pressure, not m
 
 {remoteError ? <div className="errorBox">{remoteError}</div> : null}
 
+<div className="scoreLine">
+<div className="scoreTitle">Transfer Score (Last 10)</div>
+<div className="scoreValue">
+{transferScore.held}/{transferScore.total || 10} held
+</div>
+<div className="scoreHint">
+Held = Good Possession + Foul Drawn
+</div>
+</div>
+
 <div className="recapGrid">
 <div className="recapBox">
 <div className="recapLabel">Constraint Mix (Last 10)</div>
@@ -362,8 +363,7 @@ Parents feel this immediately: we’re measuring decisions under pressure, not m
 ))}
 {last10Summary.topConstraint?.count > 0 ? (
 <div className="recapNote">
-Focus: <b>{last10Summary.topConstraint.name}</b> showed up{" "}
-<b>{last10Summary.topConstraint.count}</b> times.
+Top tag: <b>{last10Summary.topConstraint.name}</b> ({last10Summary.topConstraint.count})
 </div>
 ) : (
 <div className="recapNote">Log a few possessions to build a pattern.</div>
@@ -378,16 +378,14 @@ Focus: <b>{last10Summary.topConstraint.name}</b> showed up{" "}
 <div className="recapVal">{last10Summary.byOutcome[o]}</div>
 </div>
 ))}
-<div className="recapNote">
-This is the transfer meter — how often the constraint holds under pressure.
-</div>
+<div className="recapNote">This recap now respects multi-constraint possessions.</div>
 </div>
 </div>
 
 <div className="miniTable">
 <div className="miniHead">
 <div>#</div>
-<div>Constraint</div>
+<div>Constraints</div>
 <div>Outcome</div>
 </div>
 
@@ -396,13 +394,16 @@ This is the transfer meter — how often the constraint holds under pressure.
 ) : last10.length === 0 ? (
 <div className="miniEmpty">No DB logs in this session window yet.</div>
 ) : (
-last10.map((r) => (
+last10.map((r) => {
+const cs = rowConstraints(r);
+return (
 <div className="miniRow" key={r.id || `${r.created_at}-${r.possession_number}`}>
 <div className="miniCell mono">{r.possession_number}</div>
-<div className="miniCell">{r.constraint_name}</div>
+<div className="miniCell">{cs.join(" + ")}</div>
 <div className="miniCell">{r.outcome}</div>
 </div>
-))
+);
+})
 )}
 </div>
 
@@ -415,7 +416,7 @@ Parent language: “We track what shows up in games, then we train exactly that.
 ) : null}
 
 <footer className="footer">
-One possession = constraint + outcome. Courtside-safe. Recap pulls from Supabase.
+One possession = 1–3 constraints + outcome. Recap pulls from Supabase.
 </footer>
 </div>
 );
